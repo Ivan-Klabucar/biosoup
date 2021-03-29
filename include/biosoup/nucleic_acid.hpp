@@ -121,6 +121,10 @@ class NucleicAcid {
     std::int32_t upper_step = (max_quality - average_quality) / (num_of_upper_levels + 1);
     std::int32_t lower_step = (average_quality - min_quality) / num_of_lower_levels;
     std::int8_t curr_level = min_quality;
+    std::cout << "min q: "<< (std::int32_t) min_quality << std::endl;
+    std::cout << "max q: "<< (std::int32_t) max_quality << std::endl;
+    std::cout << "upper s: "<< (std::int32_t) upper_step << std::endl;
+    std::cout << "lowwer s: "<< (std::int32_t) lower_step << std::endl;
     while(num_of_lower_levels > 0) {
       curr_level += lower_step; 
       quality_levels.push_back(curr_level);
