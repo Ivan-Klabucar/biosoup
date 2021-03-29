@@ -89,6 +89,7 @@ class NucleicAcid {
       : NucleicAcid(
           name, name_len,
           data, data_len) {
+    std::cout << "Quality levels Constructor: " << std::endl;
     std::uint64_t quality_sum = 0;
     std::uint8_t min_quality = quality[0];
     std::uint8_t max_quality = quality[0];
