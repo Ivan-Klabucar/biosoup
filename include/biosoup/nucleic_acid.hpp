@@ -134,7 +134,7 @@ class NucleicAcid {
     }
     std::cout << "Quality levels: " << std::endl;
     for(auto x : quality_levels) {
-      std::cout << x << std::endl;
+      std::cout << (std::int32_t)x << std::endl;
     }
   }
 
