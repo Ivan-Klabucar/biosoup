@@ -126,6 +126,7 @@ class NucleicAcid {
     std::cout << "max q: "<< (std::int32_t) max_quality << std::endl;
     std::cout << "upper s: "<< (std::int32_t) upper_step << std::endl;
     std::cout << "lowwer s: "<< (std::int32_t) lower_step << std::endl;
+    std::cout << "avg: "<< (std::int32_t) average_quality << std::endl;
     while(num_of_lower_levels > 0) {
       curr_level += lower_step; 
       quality_levels.push_back(curr_level);
