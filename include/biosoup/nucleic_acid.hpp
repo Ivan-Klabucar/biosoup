@@ -10,6 +10,7 @@
 #include <string>
 #include <stdexcept>
 #include <vector>
+#include <iostream>
 
 namespace biosoup {
 
@@ -88,19 +89,19 @@ class NucleicAcid {
       : NucleicAcid(
           name, name_len,
           data, data_len) {
-    block_quality.reserve(quality_len / 64. + .999);
-    for (std::uint32_t i = 0; i < quality_len; i += 64) {
-      std::uint32_t j = std::min(i + 64, quality_len);
-      auto block = std::accumulate(
-          quality + i,
-          quality + j,
-          0,
-          [] (const std::uint32_t& sum, const char& q) -> std::uint32_t {
-            return sum + (q - '!');
-          });
-      block_quality.emplace_back(block / (j - i));
+    std::uint64_t quality_sum = 0;
+    std::uint8_t min_quality = quality[0];
+    std::uint8_t max_quality = quality[0];
+    for (std::uint32_t i = 0; i < data_len; ++i) {
+      std::uint8_t curr_quality = quality[i] - '!';
+      quality_sum += curr_quality;
+      if (curr_quality > max_quality) max_quality = curr_quality;
+      if (curr_quality < min_quality) min_quality = curr_quality;
     }
+    average_quality = quality_sum / quality_len;
+    DecideQualityLevels(min_quality, max_quality);
   }
+  
 
   NucleicAcid(const NucleicAcid&) = default;
   NucleicAcid& operator=(const NucleicAcid&) = default;
@@ -109,6 +110,32 @@ class NucleicAcid {
   NucleicAcid& operator=(NucleicAcid&&) = default;
 
   ~NucleicAcid() = default;
+
+  void DecideQualityLevels(std::uint8_t min_quality, std::uint8_t max_quality) {
+    std::int32_t range = max_quality - min_quality;
+    std::int32_t quarter = range / 4;
+    std::int32_t num_of_upper_levels = (max_quality - average_quality) / quarter;
+    if (num_of_upper_levels == 4) num_of_upper_levels = 3;
+    std::int32_t num_of_lower_levels = 4 - num_of_upper_levels;
+    std::int32_t upper_step = (max_quality - average_quality) / (num_of_upper_levels + 1);
+    std::int32_t lower_step = (average_quality - min_quality) / num_of_lower_levels;
+    std::int8_t curr_level = min_quality;
+    while(num_of_lower_levels > 0) {
+      curr_level += lower_step; 
+      quality_levels.push_back(curr_level);
+      num_of_lower_levels--;
+    }
+    curr_level = average_quality;
+    while(num_of_upper_levels > 0) {
+      curr_level += upper_step; 
+      quality_levels.push_back(curr_level);
+      num_of_upper_levels--;
+    }
+    std::cout << "Quality levels: " << std::endl;
+    for(auto x : quality_levels) {
+      std::cout << x << std::endl;
+    }
+  }
 
   std::uint64_t Code(std::uint32_t i) const {
     std::uint64_t x = 0;
@@ -163,7 +190,10 @@ class NucleicAcid {
   std::uint32_t id;  // (optional) initialize num_objects to 0
   std::string name;
   std::vector<std::uint64_t> deflated_data;
+  std::vector<std::uint64_t> deflated_quality;
   std::vector<std::uint8_t> block_quality;  // (optional) Phred quality scores
+  std::vector<std::int8_t> quality_levels;
+  std::uint8_t average_quality;
   std::uint32_t inflated_len;
   bool is_reverse_complement;
 };
