@@ -91,10 +91,11 @@ class NucleicAcid {
           data, data_len) {
     std::cout << "Quality levels Constructor: " << std::endl;
     std::uint64_t quality_sum = 0;
-    std::uint8_t min_quality = quality[0];
-    std::uint8_t max_quality = quality[0];
+    std::uint8_t min_quality;
+    std::uint8_t max_quality;
     for (std::uint32_t i = 0; i < data_len; ++i) {
       std::uint8_t curr_quality = quality[i] - '!';
+      if (i == 0) min_quality = max_quality = curr_quality;
       quality_sum += curr_quality;
       if (curr_quality > max_quality) max_quality = curr_quality;
       if (curr_quality < min_quality) min_quality = curr_quality;
