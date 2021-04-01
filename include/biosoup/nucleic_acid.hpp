@@ -89,7 +89,7 @@ class NucleicAcid {
       : NucleicAcid(
           name, name_len,
           data, data_len) {
-    std::cout << "Quality levels Constructor: " << std::endl;
+    //std::cout << "Quality levels Constructor: " << std::endl;
     std::uint64_t quality_sum = 0;
     std::uint8_t min_quality;
     std::uint8_t max_quality;
@@ -132,17 +132,18 @@ class NucleicAcid {
   void DecideQualityLevels(std::uint8_t min_quality, std::uint8_t max_quality) {
     std::int32_t range = max_quality - min_quality;
     std::int32_t quarter = range / 4;
+    if( quarter == 0 ) quarter = 1;
     std::int32_t num_of_upper_levels = (max_quality - average_quality) / quarter;
-    if (num_of_upper_levels == 4) num_of_upper_levels = 3;
+    if ( num_of_upper_levels == 4 ) num_of_upper_levels = 3;
     std::int32_t num_of_lower_levels = 4 - num_of_upper_levels;
     std::int32_t upper_step = (max_quality - average_quality) / (num_of_upper_levels + 1);
     std::int32_t lower_step = (average_quality - min_quality) / num_of_lower_levels;
     std::int32_t curr_level = min_quality;
-    std::cout << "min q: "<< (std::int32_t) min_quality << std::endl;
-    std::cout << "max q: "<< (std::int32_t) max_quality << std::endl;
-    std::cout << "upper s: "<< (std::int32_t) upper_step << std::endl;
-    std::cout << "lowwer s: "<< (std::int32_t) lower_step << std::endl;
-    std::cout << "avg: "<< (std::int32_t) average_quality << std::endl;
+    // std::cout << "min q: "<< (std::int32_t) min_quality << std::endl;
+    // std::cout << "max q: "<< (std::int32_t) max_quality << std::endl;
+    // std::cout << "upper s: "<< (std::int32_t) upper_step << std::endl;
+    // std::cout << "lowwer s: "<< (std::int32_t) lower_step << std::endl;
+    // std::cout << "avg: "<< (std::int32_t) average_quality << std::endl;
     while(num_of_lower_levels > 0) {
       curr_level += lower_step; 
       quality_levels.push_back(curr_level);
@@ -154,10 +155,10 @@ class NucleicAcid {
       quality_levels.push_back(curr_level);
       num_of_upper_levels--;
     }
-    std::cout << "Quality levels: " << std::endl;
-    for(auto x : quality_levels) {
-      std::cout << (std::int32_t)x << std::endl;
-    }
+    // std::cout << "Quality levels: " << std::endl;
+    // for(auto x : quality_levels) {
+    //   std::cout << (std::int32_t)x << std::endl;
+    // }
   }
 
   std::uint64_t Code(std::uint32_t i) const {
