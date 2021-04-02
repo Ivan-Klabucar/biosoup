@@ -10,6 +10,7 @@
 #include <string>
 #include <stdexcept>
 #include <vector>
+#include <map>
 #include <iostream>
 
 namespace biosoup {
@@ -89,19 +90,24 @@ class NucleicAcid {
       : NucleicAcid(
           name, name_len,
           data, data_len) {
-    //std::cout << "Quality levels Constructor: " << std::endl;
+
     std::uint64_t quality_sum = 0;
-    std::uint8_t min_quality;
-    std::uint8_t max_quality;
+    std::map<uint8_t, int32_t> quality_freq;
     for (std::uint32_t i = 0; i < quality_len; ++i) {
       std::uint8_t curr_quality = quality[i] - '!';
-      if (i == 0) min_quality = max_quality = curr_quality;
+      quality_freq[curr_quality]++;
       quality_sum += curr_quality;
-      if (curr_quality > max_quality) max_quality = curr_quality;
-      if (curr_quality < min_quality) min_quality = curr_quality;
     }
-    average_quality = quality_sum / quality_len;
-    DecideQualityLevels(min_quality, max_quality);
+    std::uint8_t min_q = quality_freq.begin()->first;
+    std::uint8_t max_q = quality_freq.rbegin()->first;
+    std::uint8_t mod_q = std::max_element(
+        quality_freq.begin(), 
+        quality_freq.end(), 
+        [] (const std::pair<uint8_t, int32_t>& a, const std::pair<uint8_t, int32_t>& b)-> bool { 
+          return a.second < b.second; 
+        })->first;
+    std::uint8_t avg_q = quality_sum / quality_len;
+    DecideQualityLevels(min_q, max_q, avg_q, mod_q);
     deflated_quality.reserve(quality_len / 32. + .999);
     std::uint64_t block = 0;
     for (std::uint32_t i = 0; i < quality_len; ++i) {
@@ -129,18 +135,18 @@ class NucleicAcid {
 
   ~NucleicAcid() = default;
 
-  void DecideQualityLevels(std::uint8_t min_quality, std::uint8_t max_quality) {
-    std::int32_t range = max_quality - min_quality;
+  void DecideQualityLevels(std::uint8_t min_q, std::uint8_t max_q, std::uint8_t avg_q, std::uint8_t mod_q) {
+    std::int32_t range = max_q - min_q;
     std::int32_t quarter = range / 4;
     if( quarter == 0 ) quarter = 1;
-    std::int32_t num_of_upper_levels = (max_quality - average_quality) / quarter;
+    std::int32_t num_of_upper_levels = (max_q - avg_q) / quarter;
     if ( num_of_upper_levels == 4 ) num_of_upper_levels = 3;
     std::int32_t num_of_lower_levels = 4 - num_of_upper_levels;
-    std::int32_t upper_step = (max_quality - average_quality) / (num_of_upper_levels + 1);
-    std::int32_t lower_step = (average_quality - min_quality) / num_of_lower_levels;
-    std::int32_t curr_level = min_quality;
-    // std::cout << "min q: "<< (std::int32_t) min_quality << std::endl;
-    // std::cout << "max q: "<< (std::int32_t) max_quality << std::endl;
+    std::int32_t upper_step = (max_q - avg_q) / (num_of_upper_levels + 1);
+    std::int32_t lower_step = (avg_q - min_q) / num_of_lower_levels;
+    std::int32_t curr_level = min_q;
+    // std::cout << "min q: "<< (std::int32_t) min_q << std::endl;
+    // std::cout << "max q: "<< (std::int32_t) max_q << std::endl;
     // std::cout << "upper s: "<< (std::int32_t) upper_step << std::endl;
     // std::cout << "lowwer s: "<< (std::int32_t) lower_step << std::endl;
     // std::cout << "avg: "<< (std::int32_t) average_quality << std::endl;
@@ -149,7 +155,7 @@ class NucleicAcid {
       quality_levels.push_back(curr_level);
       num_of_lower_levels--;
     }
-    curr_level = average_quality;
+    curr_level = avg_q;
     while(num_of_upper_levels > 0) {
       curr_level += upper_step; 
       quality_levels.push_back(curr_level);
@@ -217,7 +223,6 @@ class NucleicAcid {
   std::vector<std::uint64_t> deflated_quality;
   std::vector<std::uint8_t> block_quality;  // (optional) Phred quality scores
   std::vector<std::uint8_t> quality_levels;
-  std::uint8_t average_quality;
   std::uint32_t inflated_len;
   bool is_reverse_complement;
 };
