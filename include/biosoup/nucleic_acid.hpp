@@ -136,31 +136,40 @@ class NucleicAcid {
   ~NucleicAcid() = default;
 
   void DecideQualityLevels(std::uint8_t min_q, std::uint8_t max_q, std::uint8_t avg_q, std::uint8_t mod_q) {
-    std::int32_t range = max_q - min_q;
-    std::int32_t quarter = range / 4;
-    if( quarter == 0 ) quarter = 1;
-    std::int32_t num_of_upper_levels = (max_q - avg_q) / quarter;
-    if ( num_of_upper_levels == 4 ) num_of_upper_levels = 3;
-    std::int32_t num_of_lower_levels = 4 - num_of_upper_levels;
-    std::int32_t upper_step = (max_q - avg_q) / (num_of_upper_levels + 1);
-    std::int32_t lower_step = (avg_q - min_q) / num_of_lower_levels;
+    std::int32_t quarter = (max_q - min_q) / 4; // mozda +1 u zagradi istrazi!
+    if (quarter == 0) quarter = 1;
+    std::int32_t num_of_upper_levels;
+    std::int32_t num_of_lower_levels;
+    if (mod_q > avg_q) {
+      num_of_upper_levels = (max_q - mod_q) / quarter;
+      num_of_lower_levels = 4 - num_of_upper_levels - 1;
+    } else if (mod_q < avg_q) {
+      num_of_lower_levels = (mod_q - min_q) / quarter;
+      num_of_upper_levels = 4 - num_of_lower_levels - 1;
+    } else {
+      num_of_lower_levels = 2;
+      num_of_upper_levels = 2;
+    }
+    std::int32_t upper_step = (max_q - mod_q) / (num_of_upper_levels + 1);
+    std::int32_t lower_step = (mod_q - min_q) / (num_of_lower_levels + 1);
+
     std::int32_t curr_level = min_q;
-    // std::cout << "min q: "<< (std::int32_t) min_q << std::endl;
-    // std::cout << "max q: "<< (std::int32_t) max_q << std::endl;
-    // std::cout << "upper s: "<< (std::int32_t) upper_step << std::endl;
-    // std::cout << "lowwer s: "<< (std::int32_t) lower_step << std::endl;
-    // std::cout << "avg: "<< (std::int32_t) average_quality << std::endl;
-    while(num_of_lower_levels > 0) {
-      curr_level += lower_step; 
+    for (int32_t i = 0; i < num_of_lower_levels; i++) {
+      curr_level += lower_step;
       quality_levels.push_back(curr_level);
-      num_of_lower_levels--;
     }
-    curr_level = avg_q;
-    while(num_of_upper_levels > 0) {
-      curr_level += upper_step; 
+    curr_level = mod_q;
+    quality_levels.push_back(curr_level);
+    for (int32_t i = 0; i < num_of_upper_levels; i++) {
+      curr_level += upper_step;
       quality_levels.push_back(curr_level);
-      num_of_upper_levels--;
     }
+    // std::cout << "min: " << (std::int32_t)min_q << std::endl;
+    // std::cout << "max: " << (std::int32_t)max_q << std::endl;
+    // std::cout << "avg: " << (std::int32_t)avg_q << std::endl;
+    // std::cout << "mod: " <<( std::int32_t)mod_q << std::endl;
+    // std::cout << "num_of_upper_levels: " << (std::int32_t)num_of_upper_levels << std::endl;
+    // std::cout << "num_of_lower_levels: " << (std::int32_t)num_of_lower_levels << std::endl;
     // std::cout << "Quality levels: " << std::endl;
     // for(auto x : quality_levels) {
     //   std::cout << (std::int32_t)x << std::endl;
