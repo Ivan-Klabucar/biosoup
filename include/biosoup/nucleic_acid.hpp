@@ -90,38 +90,46 @@ class NucleicAcid {
       : NucleicAcid(
           name, name_len,
           data, data_len) {
-
-    std::uint64_t quality_sum = 0;
-    std::map<uint8_t, int32_t> quality_freq;
-    for (std::uint32_t i = 0; i < quality_len; ++i) {
-      std::uint8_t curr_quality = quality[i] - '!';
-      quality_freq[curr_quality]++;
-      quality_sum += curr_quality;
-    }
-    std::uint8_t min_q = quality_freq.begin()->first;
-    std::uint8_t max_q = quality_freq.rbegin()->first;
-    std::uint8_t mod_q = std::max_element(
-        quality_freq.begin(), 
-        quality_freq.end(), 
-        [] (const std::pair<uint8_t, int32_t>& a, const std::pair<uint8_t, int32_t>& b)-> bool { 
-          return a.second < b.second; 
-        })->first;
-    std::uint8_t avg_q = quality_sum / quality_len;
-    DecideQualityLevels(min_q, max_q, avg_q, mod_q);
+    
     deflated_quality.reserve(quality_len / 32. + .999);
-    std::uint64_t block = 0;
-    for (std::uint32_t i = 0; i < quality_len; ++i) {
-      std::uint8_t curr_quality = quality[i] - '!';
-      std::vector<std::int32_t> diffs;
-      std::for_each(
-          quality_levels.begin(), 
-          quality_levels.end(),
-          [&diffs, &curr_quality] (std::uint8_t &x) { diffs.push_back(std::abs(x - curr_quality)); });
-      std::uint64_t c = std::min_element(diffs.begin(), diffs.end()) - diffs.begin();
-      block |= c << ((i << 1) & 63);
-      if (((i + 1) & 31) == 0 || i == data_len - 1) {
-        deflated_quality.emplace_back(block);
-        block = 0;
+    for (std::uint32_t i = 0; i < quality_len; i += 1024) {
+      std::uint32_t index_limit = std::min(i + 1024, quality_len);
+      std::uint64_t quality_sum = 0;
+      std::map<uint8_t, int32_t> quality_freq;
+      for (std::uint32_t j = i; j < index_limit; ++j) {
+        std::uint8_t curr_quality = quality[j] - '!';
+        quality_freq[curr_quality]++;
+        quality_sum += curr_quality;
+      }
+      std::uint8_t min_q = quality_freq.begin()->first;
+      std::uint8_t max_q = quality_freq.rbegin()->first;
+      std::uint8_t mod_q = std::max_element(
+          quality_freq.begin(), 
+          quality_freq.end(), 
+          [] (const std::pair<uint8_t, int32_t>& a, const std::pair<uint8_t, int32_t>& b)-> bool { 
+            return a.second < b.second; 
+          })->first;
+      std::uint8_t avg_q = quality_sum / quality_len;
+      std::vector<uint8_t> curr_levels;
+      std::uint32_t compressed_levels = DecideQualityLevels(min_q, max_q, avg_q, mod_q);
+      for(std::int32_t j = 0; j < 4; j++) {
+        curr_levels.push_back(static_cast<uint8_t>(compressed_levels & 255));
+        compressed_levels >>= 8;
+      }
+      std::uint64_t block = 0;
+      for (std::uint32_t j = i; j < index_limit; ++j) {
+        std::uint8_t curr_quality = quality[j] - '!';
+        std::vector<std::int32_t> diffs;
+        std::for_each(
+            curr_levels.begin(), 
+            curr_levels.end(),
+            [&diffs, &curr_quality] (std::uint8_t &x) { diffs.push_back(std::abs(x - curr_quality)); });
+        std::uint64_t c = std::min_element(diffs.begin(), diffs.end()) - diffs.begin();
+        block |= c << ((j << 1) & 63);
+        if (((j + 1) & 31) == 0 || j == quality_len - 1) {
+          deflated_quality.emplace_back(block);
+          block = 0;
+        }
       }
     }
   }
@@ -135,7 +143,7 @@ class NucleicAcid {
 
   ~NucleicAcid() = default;
 
-  void DecideQualityLevels(std::uint8_t min_q, std::uint8_t max_q, std::uint8_t avg_q, std::uint8_t mod_q) {
+  std::uint32_t DecideQualityLevels(std::uint8_t min_q, std::uint8_t max_q, std::uint8_t avg_q, std::uint8_t mod_q) {
     std::int32_t quarter = (max_q - min_q) / 4; // mozda +1 u zagradi istrazi!
     if (quarter == 0) quarter = 1;
     std::int32_t num_of_upper_levels;
@@ -147,33 +155,39 @@ class NucleicAcid {
       num_of_lower_levels = (mod_q - min_q) / quarter;
       num_of_upper_levels = 4 - num_of_lower_levels - 1;
     } else {
-      num_of_lower_levels = 2;
+      num_of_lower_levels = 1;
       num_of_upper_levels = 2;
     }
     std::int32_t upper_step = (max_q - mod_q) / (num_of_upper_levels + 1);
     std::int32_t lower_step = (mod_q - min_q) / (num_of_lower_levels + 1);
 
-    std::int32_t curr_level = min_q;
+    std::uint32_t discretization_levels = 0;
+    std::uint32_t curr_level = min_q;
     for (int32_t i = 0; i < num_of_lower_levels; i++) {
       curr_level += lower_step;
-      quality_levels.push_back(curr_level);
+      discretization_levels <<= 8;
+      discretization_levels |= curr_level;
     }
     curr_level = mod_q;
-    quality_levels.push_back(curr_level);
+    discretization_levels <<= 8;
+    discretization_levels |= curr_level;
     for (int32_t i = 0; i < num_of_upper_levels; i++) {
       curr_level += upper_step;
-      quality_levels.push_back(curr_level);
+      discretization_levels <<= 8;
+      discretization_levels |= curr_level;
     }
     // std::cout << "min: " << (std::int32_t)min_q << std::endl;
     // std::cout << "max: " << (std::int32_t)max_q << std::endl;
     // std::cout << "avg: " << (std::int32_t)avg_q << std::endl;
-    // std::cout << "mod: " <<( std::int32_t)mod_q << std::endl;
+    // std::cout << "mod: " << (std::int32_t)mod_q << std::endl;
     // std::cout << "num_of_upper_levels: " << (std::int32_t)num_of_upper_levels << std::endl;
     // std::cout << "num_of_lower_levels: " << (std::int32_t)num_of_lower_levels << std::endl;
     // std::cout << "Quality levels: " << std::endl;
     // for(auto x : quality_levels) {
     //   std::cout << (std::int32_t)x << std::endl;
     // }
+    quality_levels.push_back(discretization_levels);
+    return discretization_levels;
   }
 
   std::uint64_t Code(std::uint32_t i) const {
@@ -189,7 +203,8 @@ class NucleicAcid {
     if (is_reverse_complement) {
       i = inflated_len - i - 1;
     }
-    return quality_levels[(deflated_quality[i >> 5] >> ((i << 1) & 63)) & 3];
+    std::int32_t index = (deflated_quality[i >> 5] >> ((i << 1) & 63)) & 3;
+    return static_cast<std::uint8_t>((quality_levels[i >> 9] >> (index * 8)) & 255);
   }
 
   std::string InflateData(std::uint32_t i = 0, std::uint32_t len = -1) const {
@@ -231,7 +246,7 @@ class NucleicAcid {
   std::vector<std::uint64_t> deflated_data;
   std::vector<std::uint64_t> deflated_quality;
   std::vector<std::uint8_t> block_quality;  // (optional) Phred quality scores
-  std::vector<std::uint8_t> quality_levels;
+  std::vector<std::uint32_t> quality_levels;
   std::uint32_t inflated_len;
   bool is_reverse_complement;
 };
