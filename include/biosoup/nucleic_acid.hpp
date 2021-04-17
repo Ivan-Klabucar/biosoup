@@ -204,7 +204,7 @@ class NucleicAcid {
       i = inflated_len - i - 1;
     }
     std::int32_t index = (deflated_quality[i >> 5] >> ((i << 1) & 63)) & 3;
-    return static_cast<std::uint8_t>((quality_levels[i >> 9] >> (index * 8)) & 255);
+    return static_cast<std::uint8_t>((quality_levels[i >> 10] >> (index * 8)) & 255);
   }
 
   std::string InflateData(std::uint32_t i = 0, std::uint32_t len = -1) const {
