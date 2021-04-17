@@ -109,7 +109,7 @@ class NucleicAcid {
           [] (const std::pair<uint8_t, int32_t>& a, const std::pair<uint8_t, int32_t>& b)-> bool { 
             return a.second < b.second; 
           })->first;
-      std::uint8_t avg_q = quality_sum / quality_len;
+      std::uint8_t avg_q = quality_sum / (static_cast<std::int64_t>(index_limit) - static_cast<std::int64_t>(i));
       std::vector<uint8_t> curr_levels;
       std::uint32_t compressed_levels = DecideQualityLevels(min_q, max_q, avg_q, mod_q);
       for(std::int32_t j = 0; j < 4; j++) {
