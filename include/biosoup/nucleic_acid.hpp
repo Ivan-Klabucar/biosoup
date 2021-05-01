@@ -109,7 +109,7 @@ class NucleicAcid {
           [] (const std::pair<uint8_t, int32_t>& a, const std::pair<uint8_t, int32_t>& b)-> bool { 
             return a.second < b.second; 
           })->first;
-      std::uint8_t avg_q = quality_sum / (static_cast<std::int64_t>(index_limit) - static_cast<std::int64_t>(i));
+      std::uint8_t avg_q = quality_sum / (static_cast<std::int32_t>(index_limit) - static_cast<std::int32_t>(i));
       std::vector<uint8_t> curr_levels;
       std::uint32_t compressed_levels = DecideQualityLevels(min_q, max_q, avg_q, mod_q);
       for(std::int32_t j = 0; j < 4; j++) {
@@ -144,15 +144,15 @@ class NucleicAcid {
   ~NucleicAcid() = default;
 
   std::uint32_t DecideQualityLevels(std::uint8_t min_q, std::uint8_t max_q, std::uint8_t avg_q, std::uint8_t mod_q) {
-    std::int32_t quarter = (max_q - min_q) / 4; // mozda +1 u zagradi istrazi!
-    if (quarter == 0) quarter = 1;
+    double quarter = (max_q - min_q) / 4.0; // mozda +1 u zagradi istrazi!
+    if (quarter < 1.0) quarter = 1.0;
     std::int32_t num_of_upper_levels;
     std::int32_t num_of_lower_levels;
     if (mod_q > avg_q) {
-      num_of_upper_levels = (max_q - mod_q) / quarter;
+      num_of_upper_levels = static_cast<std::int32_t>((max_q - mod_q) / quarter);
       num_of_lower_levels = 4 - num_of_upper_levels - 1;
     } else if (mod_q < avg_q) {
-      num_of_lower_levels = (mod_q - min_q) / quarter;
+      num_of_lower_levels = static_cast<std::int32_t>((mod_q - min_q) / quarter);
       num_of_upper_levels = 4 - num_of_lower_levels - 1;
     } else {
       num_of_lower_levels = 1;
