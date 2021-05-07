@@ -92,6 +92,7 @@ class NucleicAcid {
           data, data_len) {
     
     deflated_quality.reserve(quality_len / 32. + .999);
+    quality_levels.reserve(quality_len / 1024. + .999);
     for (std::uint32_t i = 0; i < quality_len; i += 1024) {
       std::uint32_t index_limit = std::min(i + 1024, quality_len);
       std::uint64_t quality_sum = 0;
@@ -101,7 +102,7 @@ class NucleicAcid {
         quality_freq[curr_quality]++;
         quality_sum += curr_quality;
       }
-      
+      //Gathering information about the distribution shape on current window
       std::uint8_t min_q = quality_freq.begin()->first;
       std::uint8_t max_q = quality_freq.rbegin()->first;
       std::uint8_t avg_q = quality_sum / (static_cast<std::int32_t>(index_limit) - static_cast<std::int32_t>(i));
@@ -112,6 +113,7 @@ class NucleicAcid {
             return a.second < b.second; 
           })->first;
       std::vector<uint8_t> curr_levels;
+      //Deciding quality discretization levels for current window
       double quarter = (max_q - min_q) / 4.0; // mozda +1 u zagradi istrazi!
       if (quarter < 1.0) quarter = 1.0;
       std::int32_t num_of_upper_levels;
@@ -130,25 +132,24 @@ class NucleicAcid {
       std::int32_t lower_step = (mod_q - min_q) / (num_of_lower_levels + 1);
       std::uint32_t discretization_levels = 0;
       std::uint32_t curr_level = min_q;
-      for (int32_t i = 0; i < num_of_lower_levels; i++) {
-        curr_level += lower_step;
-        curr_levels.emplace_back(static_cast<uint8_t>(curr_level));
+      auto process_level = [&curr_levels, &discretization_levels] (std::uint32_t level) {
+        curr_levels.emplace_back(static_cast<uint8_t>(level));
         discretization_levels <<= 8;
-        discretization_levels |= curr_level;
+        discretization_levels |= level;
+      };
+      for (int32_t j = 0; j < num_of_lower_levels; j++) {
+        curr_level += lower_step;
+        process_level(curr_level);
       }
       curr_level = mod_q;
-      curr_levels.emplace_back(static_cast<uint8_t>(curr_level));
-      discretization_levels <<= 8;
-      discretization_levels |= curr_level;
-      for (int32_t i = 0; i < num_of_upper_levels; i++) {
+      process_level(curr_level);
+      for (int32_t j = 0; j < num_of_upper_levels; j++) {
         curr_level += upper_step;
-        curr_levels.emplace_back(static_cast<uint8_t>(curr_level));
-        discretization_levels <<= 8;
-        discretization_levels |= curr_level;
+        process_level(curr_level);
       }
       quality_levels.push_back(discretization_levels);
       std::reverse(curr_levels.begin(), curr_levels.end());
-
+      //Encoding quality values of current window
       std::uint64_t block = 0;
       for (std::uint32_t j = i; j < index_limit; ++j) {
         std::uint8_t curr_quality = quality[j] - '!';
