@@ -10,7 +10,6 @@
 #include <string>
 #include <stdexcept>
 #include <vector>
-#include <map>
 #include <iostream>
 
 namespace biosoup {
@@ -96,7 +95,7 @@ class NucleicAcid {
     for (std::uint32_t i = 0; i < quality_len; i += 512) {
       std::uint32_t index_limit = std::min(i + 512, quality_len);
       std::uint64_t quality_sum = 0;
-      std::map<uint8_t, int32_t> quality_freq;
+      std::vector<std::int32_t> quality_freq(100, 0);
       for (std::uint32_t j = i; j < index_limit; ++j) {
         std::uint8_t curr_quality = quality[j] - '!';
         quality_freq[curr_quality]++;
@@ -129,21 +128,28 @@ class NucleicAcid {
 
   ~NucleicAcid() = default;
 
-  void DecideQualityLevels(std::map<uint8_t, int32_t> &quality_freq,  
+  void DecideQualityLevels(std::vector<std::int32_t> &quality_freq,  
                            std::vector<uint8_t> &curr_levels,
                            std::uint64_t quality_sum,
                            std::uint32_t index_limit,
                            std::uint32_t i) {
     //Gathering information about the distribution shape on current window
-    std::uint8_t min_q = quality_freq.begin()->first;
-    std::uint8_t max_q = quality_freq.rbegin()->first;
+    std::uint8_t min_q = std::find_if(
+                            quality_freq.begin(), 
+                            quality_freq.end(), 
+                            [](std::int32_t x) -> bool { return x != 0; }
+                            ) - quality_freq.begin();
+    std::uint8_t max_q = quality_freq.rend() - std::find_if(
+                                                  quality_freq.rbegin(), 
+                                                  quality_freq.rend(), 
+                                                  [](std::int32_t x) -> bool { return x != 0; }
+                                                  ) - 1;
     std::uint8_t avg_q = quality_sum / (static_cast<std::int32_t>(index_limit) - static_cast<std::int32_t>(i));
     std::uint8_t mod_q = std::max_element(
-        quality_freq.begin(), 
-        quality_freq.end(), 
-        [] (const std::pair<uint8_t, int32_t>& a, const std::pair<uint8_t, int32_t>& b)-> bool { 
-          return a.second < b.second; 
-        })->first;
+                            quality_freq.begin(), 
+                            quality_freq.end(), 
+                            [](std::int32_t a, std::int32_t b) -> bool { return a < b; }
+                            ) - quality_freq.begin();
     //Deciding quality discretization levels for current window
     double quarter = (max_q - min_q) / 4.0;
     if (quarter < 1.0) quarter = 1.0;
