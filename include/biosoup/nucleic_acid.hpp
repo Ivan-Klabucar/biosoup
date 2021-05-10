@@ -102,12 +102,15 @@ class NucleicAcid {
         quality_sum += curr_quality;
       }
       std::vector<uint8_t> curr_levels;
+      curr_levels.reserve(4);
       DecideQualityLevels(quality_freq, curr_levels, quality_sum, index_limit, i);
       //Encoding quality values of current window
       std::uint64_t block = 0;
+      std::vector<std::int32_t> diffs;
+      diffs.reserve(4);
       for (std::uint32_t j = i; j < index_limit; ++j) {
+        diffs.clear();
         std::uint8_t curr_quality = quality[j] - '!';
-        std::vector<std::int32_t> diffs;
         for (auto x : curr_levels) diffs.emplace_back(std::abs(x - curr_quality));
         std::uint64_t c = std::min_element(diffs.begin(), diffs.end()) - diffs.begin();
         block |= c << ((j << 1) & 63);
