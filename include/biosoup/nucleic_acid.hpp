@@ -92,9 +92,9 @@ class NucleicAcid {
           data, data_len) {
     
     deflated_quality.reserve(quality_len / 32. + .999);
-    quality_levels.reserve(quality_len / 1024. + .999);
-    for (std::uint32_t i = 0; i < quality_len; i += 1024) {
-      std::uint32_t index_limit = std::min(i + 1024, quality_len);
+    quality_levels.reserve(quality_len / 512. + .999);
+    for (std::uint32_t i = 0; i < quality_len; i += 512) {
+      std::uint32_t index_limit = std::min(i + 512, quality_len);
       std::uint64_t quality_sum = 0;
       std::map<uint8_t, int32_t> quality_freq;
       for (std::uint32_t j = i; j < index_limit; ++j) {
@@ -102,53 +102,8 @@ class NucleicAcid {
         quality_freq[curr_quality]++;
         quality_sum += curr_quality;
       }
-      //Gathering information about the distribution shape on current window
-      std::uint8_t min_q = quality_freq.begin()->first;
-      std::uint8_t max_q = quality_freq.rbegin()->first;
-      std::uint8_t avg_q = quality_sum / (static_cast<std::int32_t>(index_limit) - static_cast<std::int32_t>(i));
-      std::uint8_t mod_q = std::max_element(
-          quality_freq.begin(), 
-          quality_freq.end(), 
-          [] (const std::pair<uint8_t, int32_t>& a, const std::pair<uint8_t, int32_t>& b)-> bool { 
-            return a.second < b.second; 
-          })->first;
       std::vector<uint8_t> curr_levels;
-      //Deciding quality discretization levels for current window
-      double quarter = (max_q - min_q) / 4.0; // mozda +1 u zagradi istrazi!
-      if (quarter < 1.0) quarter = 1.0;
-      std::int32_t num_of_upper_levels;
-      std::int32_t num_of_lower_levels;
-      if (mod_q > avg_q) {
-        num_of_upper_levels = static_cast<std::int32_t>((max_q - mod_q) / quarter);
-        num_of_lower_levels = 4 - num_of_upper_levels - 1;
-      } else if (mod_q < avg_q) {
-        num_of_lower_levels = static_cast<std::int32_t>((mod_q - min_q) / quarter);
-        num_of_upper_levels = 4 - num_of_lower_levels - 1;
-      } else {
-        num_of_lower_levels = 1;
-        num_of_upper_levels = 2;
-      }
-      std::int32_t upper_step = (max_q - mod_q) / (num_of_upper_levels + 1);
-      std::int32_t lower_step = (mod_q - min_q) / (num_of_lower_levels + 1);
-      std::uint32_t discretization_levels = 0;
-      std::uint32_t curr_level = min_q;
-      auto process_level = [&curr_levels, &discretization_levels] (std::uint32_t level) {
-        curr_levels.emplace_back(static_cast<uint8_t>(level));
-        discretization_levels <<= 8;
-        discretization_levels |= level;
-      };
-      for (int32_t j = 0; j < num_of_lower_levels; j++) {
-        curr_level += lower_step;
-        process_level(curr_level);
-      }
-      curr_level = mod_q;
-      process_level(curr_level);
-      for (int32_t j = 0; j < num_of_upper_levels; j++) {
-        curr_level += upper_step;
-        process_level(curr_level);
-      }
-      quality_levels.push_back(discretization_levels);
-      std::reverse(curr_levels.begin(), curr_levels.end());
+      DecideQualityLevels(quality_freq, curr_levels, quality_sum, index_limit, i);
       //Encoding quality values of current window
       std::uint64_t block = 0;
       for (std::uint32_t j = i; j < index_limit; ++j) {
@@ -174,6 +129,59 @@ class NucleicAcid {
 
   ~NucleicAcid() = default;
 
+  void DecideQualityLevels(std::map<uint8_t, int32_t> &quality_freq,  
+                           std::vector<uint8_t> &curr_levels,
+                           std::uint64_t quality_sum,
+                           std::uint32_t index_limit,
+                           std::uint32_t i) {
+    //Gathering information about the distribution shape on current window
+    std::uint8_t min_q = quality_freq.begin()->first;
+    std::uint8_t max_q = quality_freq.rbegin()->first;
+    std::uint8_t avg_q = quality_sum / (static_cast<std::int32_t>(index_limit) - static_cast<std::int32_t>(i));
+    std::uint8_t mod_q = std::max_element(
+        quality_freq.begin(), 
+        quality_freq.end(), 
+        [] (const std::pair<uint8_t, int32_t>& a, const std::pair<uint8_t, int32_t>& b)-> bool { 
+          return a.second < b.second; 
+        })->first;
+    //Deciding quality discretization levels for current window
+    double quarter = (max_q - min_q) / 4.0;
+    if (quarter < 1.0) quarter = 1.0;
+    std::int32_t num_of_upper_levels;
+    std::int32_t num_of_lower_levels;
+    if (mod_q > avg_q) {
+      num_of_upper_levels = static_cast<std::int32_t>((max_q - mod_q) / quarter);
+      num_of_lower_levels = 4 - num_of_upper_levels - 1;
+    } else if (mod_q < avg_q) {
+      num_of_lower_levels = static_cast<std::int32_t>((mod_q - min_q) / quarter);
+      num_of_upper_levels = 4 - num_of_lower_levels - 1;
+    } else {
+      num_of_lower_levels = 1;
+      num_of_upper_levels = 2;
+    }
+    std::int32_t upper_step = (max_q - mod_q) / (num_of_upper_levels + 1);
+    std::int32_t lower_step = (mod_q - min_q) / (num_of_lower_levels + 1);
+    std::uint32_t discretization_levels = 0;
+    std::uint32_t curr_level = min_q;
+    auto process_level = [&curr_levels, &discretization_levels] (std::uint32_t level) {
+      curr_levels.emplace_back(static_cast<uint8_t>(level));
+      discretization_levels <<= 8;
+      discretization_levels |= level;
+    };
+    for (int32_t j = 0; j < num_of_lower_levels; j++) {
+      curr_level += lower_step;
+      process_level(curr_level);
+    }
+    curr_level = mod_q;
+    process_level(curr_level);
+    for (int32_t j = 0; j < num_of_upper_levels; j++) {
+      curr_level += upper_step;
+      process_level(curr_level);
+    }
+    quality_levels.push_back(discretization_levels);
+    std::reverse(curr_levels.begin(), curr_levels.end());
+  }
+
   std::uint64_t Code(std::uint32_t i) const {
     std::uint64_t x = 0;
     if (is_reverse_complement) {
@@ -188,7 +196,7 @@ class NucleicAcid {
       i = inflated_len - i - 1;
     }
     std::int32_t index = (deflated_quality[i >> 5] >> ((i << 1) & 63)) & 3;
-    return static_cast<std::uint8_t>((quality_levels[i >> 10] >> (index * 8)) & 255);
+    return static_cast<std::uint8_t>((quality_levels[i >> 9] >> (index * 8)) & 255);
   }
 
   std::string InflateData(std::uint32_t i = 0, std::uint32_t len = -1) const {
