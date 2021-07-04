@@ -42,3 +42,6 @@ If you are not using CMake, include the appropriate header file directly to your
 ## Acknowledgement
 
 This work has been supported in part by the Croatian Science Foundation under the project Single genome and metagenome assembly (IP-2018-01-5886).
+
+### New Phred Quality Score Compression
+This version encodes each quality score with only two bits.
