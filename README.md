@@ -1,5 +1,7 @@
 # Biosoup
 
+A modification of the Biosoup library which implements the Phred quality score distribution-based compression algorithm which encodes each score with only 2 bits.
+
 [![Build status for gcc/clang](https://travis-ci.com/rvaser/biosoup.svg?branch=master)](https://travis-ci.com/rvaser/biosoup)
 
 Biosoup is a c++ collection of header only data structures used for storage and logging in bioinformatics tools.
